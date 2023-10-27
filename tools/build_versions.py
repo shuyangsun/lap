@@ -7,4 +7,4 @@ import Cython
 
 for m in (np, Cython):
     version = m.__version__
-    print(m.__name__.rjust(10), ' ', version)
+    print(m.__name__.rjust(10), " ", version)
