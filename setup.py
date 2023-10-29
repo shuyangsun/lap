@@ -5,7 +5,6 @@ from pkg_resources import parse_version
 import shutil
 import subprocess
 import sys
-import traceback
 
 if sys.version_info[0] < 3:
     import __builtin__ as builtins
@@ -214,10 +213,7 @@ def setup_package():
             or sys.argv[1] in ("--help-commands", "egg_info", "--version", "clean")
         )
     ):
-        try:
-            from setuptools import setup
-        except ImportError:
-            from distutils.core import setup
+        from setuptools import setup
 
         # metadata["configuration"] = configuration
 
