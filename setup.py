@@ -206,6 +206,8 @@ def setup_package():
         **extra_setuptools_args
     )
 
+    from setuptools import setup
+
     if len(sys.argv) == 1 or (
         len(sys.argv) >= 2
         and (
@@ -213,8 +215,6 @@ def setup_package():
             or sys.argv[1] in ("--help-commands", "egg_info", "--version", "clean")
         )
     ):
-        from setuptools import setup
-
         # metadata["configuration"] = configuration
 
         if len(sys.argv) >= 2 and sys.argv[1] not in "config":
