@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
+import pip
+
+pip.main(["install", "numpy==1.25.2"])
+
 import os
 from pkg_resources import parse_version
 import shutil
 import subprocess
 import sys
+import traceback
 
 if sys.version_info[0] < 3:
     import __builtin__ as builtins
@@ -28,6 +33,8 @@ import lap
 
 VERSION = lap.__version__
 
+NUMPY_MIN_VERSION = "1.10.1"
+
 SETUPTOOLS_COMMANDS = set(
     [
         "develop",
@@ -50,7 +57,9 @@ if SETUPTOOLS_COMMANDS.intersection(sys.argv):
     extra_setuptools_args = dict(
         zip_safe=False,  # the package can run out of an .egg file
         include_package_data=True,
-        extras_require={},
+        extras_require={
+            "alldeps": ("numpy >= {0}".format(NUMPY_MIN_VERSION),),
+        },
     )
 else:
     extra_setuptools_args = dict()
@@ -133,6 +142,28 @@ def cythonize(cython_file, gen_file):
         raise OSError("Cython needs to be installed")
 
 
+def get_numpy_status():
+    """
+    Returns a dictionary containing a boolean specifying whether NumPy
+    is up-to-date, along with the version string (empty string if
+    not installed).
+    """
+    numpy_status = {}
+    try:
+        import numpy
+
+        numpy_version = numpy.__version__
+        numpy_status["up_to_date"] = parse_version(numpy_version) >= parse_version(
+            NUMPY_MIN_VERSION
+        )
+        numpy_status["version"] = numpy_version
+    except ImportError:
+        traceback.print_exc()
+        numpy_status["up_to_date"] = False
+        numpy_status["version"] = ""
+    return numpy_status
+
+
 def get_wrapper_pyx():
     return os.path.join("lap", "_lapjv.pyx")
 
@@ -143,33 +174,33 @@ def generate_cython():
     cythonize(wrapper_pyx_file, wrapper_c_file)
 
 
-# def configuration(parent_package="", top_path=None):
-#     from numpy.distutils.misc_util import Configuration, get_numpy_include_dirs
-#
-#     config = Configuration(None, parent_package, top_path)
-#
-#     config.set_options(
-#         ignore_setup_xxx_py=True,
-#         assume_default_configuration=True,
-#         delegate_options_to_subpackages=True,
-#         quiet=True,
-#     )
-#
-#     config.add_data_dir("lap/tests")
-#
-#     wrapper_pyx_file = get_wrapper_pyx()
-#     wrapper_c_file = os.path.splitext(wrapper_pyx_file)[0] + ".cpp"
-#     c_files = [
-#         os.path.join(os.path.dirname(wrapper_pyx_file), "lapjv.cpp"),
-#         os.path.join(os.path.dirname(wrapper_pyx_file), "lapmod.cpp"),
-#     ]
-#     config.add_extension(
-#         "lap._lapjv",
-#         sources=[wrapper_c_file, c_files],
-#         include_dirs=[get_numpy_include_dirs(), "lap"],
-#     )
-#
-#     return config
+def configuration(parent_package="", top_path=None):
+    from numpy.distutils.misc_util import Configuration, get_numpy_include_dirs
+
+    config = Configuration(None, parent_package, top_path)
+
+    config.set_options(
+        ignore_setup_xxx_py=True,
+        assume_default_configuration=True,
+        delegate_options_to_subpackages=True,
+        quiet=True,
+    )
+
+    config.add_data_dir("lap/tests")
+
+    wrapper_pyx_file = get_wrapper_pyx()
+    wrapper_c_file = os.path.splitext(wrapper_pyx_file)[0] + ".cpp"
+    c_files = [
+        os.path.join(os.path.dirname(wrapper_pyx_file), "lapjv.cpp"),
+        os.path.join(os.path.dirname(wrapper_pyx_file), "lapmod.cpp"),
+    ]
+    config.add_extension(
+        "lap._lapjv",
+        sources=[wrapper_c_file, c_files],
+        include_dirs=[get_numpy_include_dirs(), "lap"],
+    )
+
+    return config
 
 
 def setup_package():
@@ -206,8 +237,6 @@ def setup_package():
         **extra_setuptools_args
     )
 
-    from setuptools import setup
-
     if len(sys.argv) == 1 or (
         len(sys.argv) >= 2
         and (
@@ -215,7 +244,23 @@ def setup_package():
             or sys.argv[1] in ("--help-commands", "egg_info", "--version", "clean")
         )
     ):
-        # metadata["configuration"] = configuration
+        try:
+            from setuptools import setup
+        except ImportError:
+            from distutils.core import setup
+    else:
+        numpy_status = get_numpy_status()
+        if numpy_status["up_to_date"] is False:
+            if numpy_status["version"]:
+                raise ImportError(
+                    "Installed numpy is too old, " 'please "pip install -U numpy".'
+                )
+            else:
+                raise ImportError("lap requires numpy, " 'please "pip install numpy".')
+
+        from numpy.distutils.core import setup
+
+        metadata["configuration"] = configuration
 
         if len(sys.argv) >= 2 and sys.argv[1] not in "config":
             print("Generating cython files")
