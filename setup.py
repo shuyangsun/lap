@@ -2,7 +2,7 @@
 
 import pip
 
-pip.main(["install", "numpy==1.25.2"])
+pip.main(["install", "numpy==1.25.2", "Cython==3.0.2"])
 
 import os
 from pkg_resources import parse_version
